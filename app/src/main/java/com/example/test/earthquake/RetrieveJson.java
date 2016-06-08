@@ -99,7 +99,7 @@ public class RetrieveJson extends AsyncTask<String, Void, ArrayList<String>> {
                                 list.add(first);
                                 String second = test2[1];
                                 list.add(second);
-                                Log.e("JSON", "> " + mag + place + coordinates );
+                                Log.e("JSON", "> " + mag + place + time + coordinates );
                             } catch (JSONException e) {
                                 e.printStackTrace();
                             }
