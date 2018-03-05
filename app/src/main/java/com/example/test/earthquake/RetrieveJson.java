@@ -84,55 +84,64 @@ public class RetrieveJson extends AsyncTask<String, Void, ArrayList<String>> {
             //finding magnitude, place name, time and coordinates from json
             for (int i = 0; i < 1; i++) {
                 try {
-                    JSONArray jSearchData = jsonobjekt.getJSONArray("features");
-                    for(int j=0; j < jSearchData.length(); j++){
-                        JSONObject object = jSearchData.getJSONObject(j);
-                        properties = object.getJSONObject("properties");
-                        point = object.getJSONObject("geometry");
+                    if(!jsonobjekt.isNull("features")){
+                        JSONArray jSearchData = jsonobjekt.getJSONArray("features");
+                        for(int j=0; j < jSearchData.length(); j++){
+                            JSONObject object = jSearchData.getJSONObject(j);
+                            properties = object.getJSONObject("properties");
+                            point = object.getJSONObject("geometry");
 
-                        for (int k = 0; k < 1 ; k++) {
-                            try {
-                                String mag = properties.getString("mag");
-                                if(!mag.equals("null")) {
-                                    list.add(mag);
-                                } else {
-                                    list.add("No data");
+                            for (int k = 0; k < 1 ; k++) {
+                                try {
+                                    String mag = properties.getString("mag");
+                                    if(!mag.equals("null")) {
+                                        list.add(mag);
+                                    } else {
+                                        list.add("No data");
+                                    }
+                                    String place = properties.getString("place");
+                                    if(!place.equals("null")) {
+                                        list.add(place);
+                                    } else {
+                                        list.add("No data");
+                                    }
+                                    String time = properties.getString("time");
+                                    if(!time.equals("null")) {
+                                        long timel = Long.parseLong(time);
+                                        String format = "yyyy-MM-dd HH:mm:ss";
+                                        SimpleDateFormat sdf = new SimpleDateFormat(format, Locale.getDefault());
+                                        sdf.setTimeZone(TimeZone.getDefault());
+                                        String newtime = sdf.format(new Date(timel));
+                                        list.add(newtime);
+                                    } else {
+                                        list.add("No data");
+                                    }
+                                    String tsunami = properties.getString("tsunami");
+                                    if(!tsunami.equals("null")) {
+                                        list.add(tsunami);
+                                    } else {
+                                        list.add("No data");
+                                    }
+                                    String coordinates = point.getString("coordinates");
+                                    if(!coordinates.equals("null")) {
+                                        String test[] = coordinates.split("\\[");
+                                        String testi = test[1];
+                                        String test2[] = testi.split(",");
+                                        String first = test2[0];
+                                        list.add(first);
+                                        String second = test2[1];
+                                        list.add(second);
+                                    } else {
+                                        list.add("No data");
+                                    }
+                                    Log.e("JSON", "> " + mag + place + time + coordinates );
+                                } catch (JSONException e) {
+                                    e.printStackTrace();
                                 }
-                                String place = properties.getString("place");
-                                if(!place.equals("null")) {
-                                    list.add(place);
-                                } else {
-                                    list.add("No data");
-                                }
-                                String time = properties.getString("time");
-                                if(!time.equals("null")) {
-                                    long timel = Long.parseLong(time);
-                                    String format = "yyyy-MM-dd HH:mm:ss";
-                                    SimpleDateFormat sdf = new SimpleDateFormat(format, Locale.getDefault());
-                                    sdf.setTimeZone(TimeZone.getDefault());
-                                    String newtime = sdf.format(new Date(timel));
-                                    list.add(newtime);
-                                } else {
-                                    list.add("No data");
-                                }
-                                String coordinates = point.getString("coordinates");
-                                if(!coordinates.equals("null")) {
-                                    String test[] = coordinates.split("\\[");
-                                    String testi = test[1];
-                                    String test2[] = testi.split(",");
-                                    String first = test2[0];
-                                    list.add(first);
-                                    String second = test2[1];
-                                    list.add(second);
-                                } else {
-                                    list.add("No data");
-                                }
-                                Log.e("JSON", "> " + mag + place + time + coordinates );
-                            } catch (JSONException e) {
-                                e.printStackTrace();
                             }
                         }
                     }
+
 
                 } catch (JSONException e) {
                     e.printStackTrace();

@@ -27,6 +27,8 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
@@ -34,11 +36,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private GoogleMap mMap;
     LatLng latLng;
+    LatLng latLng1;
     SupportMapFragment mapFrag;
     LocationRequest mLocationRequest;
     GoogleApiClient mGoogleApiClient;
     Location mLastLocation;
     Marker mCurrLocationMarker;
+    Marker tsunamiMarker;
+    double currentLat;
+    double currentLong;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +62,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         //stop location updates when Activity is no longer active
         if (mGoogleApiClient != null) {
         LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        RetrieveJson job = new RetrieveJson();
+        job.setObserver(this);
+        job.execute();
+        if(mCurrLocationMarker != null) {
+            checkLocationPermission();
+            mMap.setMyLocationEnabled(true);
         }
     }
 
@@ -78,9 +96,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             buildGoogleApiClient();
             mMap.setMyLocationEnabled(true);
         }
-        RetrieveJson job = new RetrieveJson();
-        job.setObserver(this);
-        job.execute();
     }
 
     protected synchronized void buildGoogleApiClient() {
@@ -120,15 +135,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
         //Place current location marker
-        LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+        currentLat = location.getLatitude();
+        currentLong = location.getLongitude();
+        latLng1 = new LatLng(location.getLatitude(), location.getLongitude());
         MarkerOptions markerOptions = new MarkerOptions();
-        markerOptions.position(latLng);
+        markerOptions.position(latLng1);
         markerOptions.title("Current Position");
-        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA));
+        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
         mCurrLocationMarker = mMap.addMarker(markerOptions);
+        mCurrLocationMarker.showInfoWindow();
 
         //move map camera
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng,5));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng1,5));
     }
 
     public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
@@ -179,7 +197,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     // functionality that depends on this permission.
                     Toast.makeText(this, "permission denied", Toast.LENGTH_LONG).show();
                 }
-                return;
             }
             // other 'case' lines to check for other
             // permissions this app might request
@@ -187,9 +204,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     public void update(ArrayList<String> editon) {
-        int sipuli = editon.size();
-        int tulos = sipuli / 5;
-        String magnitude;
+        List<String> copy = new CopyOnWriteArrayList<>(editon);
+        String magni;
+        double magnitude;
+        String tsunami;
+        int tsunam;
         String place;
         String lat;
         String longit;
@@ -197,23 +216,97 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         double lati;
         double longi;
 
-        for (int i = 0; i < tulos; i++) {
-            magnitude = editon.get(0);
-            place = editon.get(1);
-            time = editon.get(2);
-            lat = editon.get(3);
-            longit = editon.get(4);
+        for (int i = 0; i < copy.size(); i++) {
+            magni = copy.get(0);
+            magnitude = Double.parseDouble(magni);
+            place = copy.get(1);
+            time = copy.get(2);
+            tsunami = copy.get(3);
+            tsunam = Integer.parseInt(tsunami);
+            lat = copy.get(4);
+            longit = copy.get(5);
             lati = Double.parseDouble(lat);
             longi = Double.parseDouble(longit);
-            editon.remove(magnitude);
-            editon.remove(place);
-            editon.remove(time);
-            editon.remove(lat);
-            editon.remove(longit);
+            copy.remove(magni);
+            copy.remove(place);
+            copy.remove(time);
+            copy.remove(tsunami);
+            copy.remove(lat);
+            copy.remove(longit);
             latLng = new LatLng(longi, lati);
-            mMap.addMarker(new MarkerOptions().position(latLng).title("Magnitude: " + magnitude + " Time: " + time).snippet(place));
+            MarkerOptions markerOptions = new MarkerOptions();
+            markerOptions.position(latLng);
+            if(magnitude >= 5) {
+                if(tsunam != 0) {
+                    double dist = distance(lati, longi, currentLat, currentLong);
+                    if (dist < 1000) {
+                        markerOptions.title("Magnitude: " + magni + " Time: " + time + ", Tsunami warning");
+                        markerOptions.snippet(place);
+                        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                        markerOptions.zIndex(9.0f);
+                        tsunamiMarker = mMap.addMarker(markerOptions);
+                        tsunamiMarker.showInfoWindow();
+                        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latLng,5));
+                        Toast.makeText(this, "TSUNAMI WARNING", Toast.LENGTH_LONG).show();
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng1, 3), 5000, new GoogleMap.CancelableCallback() {
+                            @Override
+                            public void onFinish() {}
 
+                            @Override
+                            public void onCancel() {}
+                        });
+                    } else {
+                        markerOptions.title("Magnitude: " + magni + " Time: " + time + ", Tsunami warning");
+                        markerOptions.snippet(place);
+                        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                        markerOptions.zIndex(8.0f);
+                        tsunamiMarker = mMap.addMarker(markerOptions);
+                    }
+                } else {
+                    markerOptions.title("Magnitude: " + magni + " Time: " + time).snippet(place);
+                    markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                    markerOptions.zIndex(8.0f);
+                    mMap.addMarker(markerOptions);
+                }
+            } else if(magnitude <= 5 && magnitude >= 3) {
+                float hue = 300;
+                markerOptions.title("Magnitude: " + magni + " Time: " + time).snippet(place);
+                markerOptions.icon(BitmapDescriptorFactory.defaultMarker(hue));
+                markerOptions.alpha(0.9f);
+                markerOptions.zIndex(1.0f);
+                mMap.addMarker(markerOptions);
+            } else {
+                float hue = 200;
+                markerOptions.title("Magnitude: " + magni + " Time: " + time).snippet(place);
+                markerOptions.icon(BitmapDescriptorFactory.defaultMarker(hue));
+                markerOptions.alpha(0.9f);
+                mMap.addMarker(markerOptions);
+            }
         }
-        //mMap.animateCamera(CameraUpdateFactory.newLatLng(latLng));
+    }
+
+    /**
+     * Calculate distance between two points in latitude and longitude.
+     * Uses Haversine method as its base.
+     * lat1, lon1 Start point lat2, lon2 End point
+     * @returns Distance in Meters
+     */
+    public double distance(double lat1, double lon1, double lat2, double lon2) {
+
+        double theta = lon1 - lon2;
+        double dist = Math.sin(deg2rad(lat1)) * Math.sin(deg2rad(lat2)) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.cos(deg2rad(theta));
+        dist = Math.acos(dist);
+        dist = rad2deg(dist);
+        dist = dist * 60 * 1.1515;
+        dist = dist * 1.609344;
+        return (dist);
+    }
+
+    private static double deg2rad(double deg) {
+        return (deg * Math.PI / 180.0);
+    }
+
+    private static double rad2deg(double rad) {
+        return (rad * 180 / Math.PI);
     }
 }
